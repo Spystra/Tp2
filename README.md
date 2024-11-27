@@ -141,17 +141,6 @@ networks:
 docker-compose up --build
 ```
 
-### Livrables
-
-- Les fichiers `Dockerfile` pour le client et le serveur, avec les instructions appropriées.
-- Le fichier `docker-compose.yml`, configuré selon les spécifications ci-dessus.
-- Un README expliquant les étapes réalisées.
-
-## Conseils
-
-- **Variables d’environnement** : Assurez-vous que le serveur Express est configuré pour se connecter à MongoDB en utilisant la variable d’environnement `MONGO_URI`.
-- **Communication entre services** : Dans Docker Compose, les services peuvent communiquer en utilisant le nom du service comme hostname (par exemple, le serveur peut accéder à MongoDB via `mongodb`).
-
 ---
 
 
