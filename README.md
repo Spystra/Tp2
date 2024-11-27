@@ -1,56 +1,158 @@
-# MERN APP
 
-## Vue d'Ensemble
-Ce projet est une application full-stack qui consiste en un client React et un serveur Node.js utilisant MongoDB comme base de données. Docker est utilisé pour la conteneurisation, et Docker Compose est utilisé pour orchestrer les services.
+### 1. Cloner le projet
 
-## Table des Matières
-- [Technologies Utilisées](#technologies-utilisées)
-- [Variables d'Environnement](#variables-denvironnement)
-- [Configuration de Docker](#configuration-de-docker)
-- [Images Docker](#images-docker)
-- [Docker Compose](#docker-compose)
-- [Comment Exécuter le Projet](#comment-executer-le-projet)
+Clonez le dépôt GitLab suivant :
 
-## Technologies Utilisées
-- **Frontend** : React
-- **Backend** : Node.js, Express
-- **Base de Données** : MongoDB
-- **Conteneurisation** : Docker, Docker Compose
+```bash
+git clone https://gitlab.com/devops_tps/mern-app
+```
 
-## Variables d'Environnement
-Les variables d'environnement suivantes sont utilisées dans l'application :
+Naviguez dans le répertoire du projet et familiarisez-vous avec sa structure. Vous y trouverez deux dossiers principaux :
+- **client** : application React
+- **server** : API Express
 
-- **REACT_APP_API_URL** : Cette variable contient l'URL de base pour le serveur API. Elle est utilisée dans le client React pour faire des requêtes au serveur.
-- **MONGO_URI** : L'URI de connexion à MongoDB utilisée par le serveur pour se connecter à l'instance MongoDB.
+### 2. Créer les Dockerfiles
 
-## Configuration de Docker
-Ce projet comprend des Dockerfiles pour le client et le serveur, qui facilitent la construction et l'exécution des services dans des conteneurs isolés. Les configurations incluent :
+#### a. Pour le serveur (Express)
 
-- **Client** : Un environnement Node.js pour construire l'application React. Les dépendances sont installées et l'application est construite pour une utilisation en production. Un serveur HTTP simple peut être utilisé pour servir l'application construite.
-  
-- **Serveur** : Un environnement Node.js qui installe les dépendances nécessaires et configure l'application pour écouter sur un port spécifique.
+Créez un fichier `Dockerfile` dans le dossier `server`.
 
-## Images Docker
-Les images Docker créées pour ce projet sont les suivantes :
+Nom de l’image : `mern-server`.
 
-- **Image du Client** : `node:lts-alpine`
-- **Image du Serveur** : `node:lts-alpine`
-- **Image de la Base de Données** : `mongo:latest`
+Les instructions à inclure dans le `Dockerfile` :
+- Utiliser l’image de base `node:lts-alpine`.
+- Définir le répertoire de travail dans le conteneur.
+- Copier les fichiers `package*.json`.
+- Installer les dépendances avec `npm install`.
+- Copier le reste des fichiers du serveur.
+- Exposer le port `9000`.
+- Démarrer l’application avec `npm start`.
+- Variables :
+  - `MONGO_URI` : URL de connexion à MongoDB (définie dans Docker Compose).
 
-Ces images sont spécifiées dans les Dockerfiles respectifs et sont utilisées lors de la construction et du déploiement des services.
+Commande pour construire l’image du serveur :
+```bash
+cd server
+docker build -t mern-server .
+```
 
-## Docker Compose
-Docker Compose est utilisé pour gérer les différents services de l'application, y compris le client, le serveur et MongoDB. Les services sont interconnectés, ce qui permet une communication fluide entre le client et le serveur. Le fichier de configuration spécifie les images, les ports exposés, ainsi que les variables d'environnement nécessaires pour chaque service.
+#### b. Pour le client (React)
 
-## Comment Exécuter le Projet
-1. Assurez-vous d'avoir Docker et Docker Compose installés sur votre machine.
-2. Clonez ce dépôt sur votre machine locale.
-3. Accédez au répertoire du projet dans votre terminal.
-4. Construisez et démarrez l'application en utilisant Docker Compose :
+Créez un fichier `Dockerfile` dans le dossier `client`.
 
-   ```bash
-   docker-compose up --build
-   ```
+Nom de l’image : `mern-client`.
 
-5. Accédez au client à [http://localhost:3000](http://localhost:3000).
+Les instructions à inclure dans le `Dockerfile` :
+- Utiliser l’image de base `node:lts-alpine`.
+- Définir le répertoire de travail dans le conteneur.
+- Copier les fichiers `package*.json`.
+- Installer les dépendances avec `npm install`.
+- Copier le reste des fichiers du client.
+- Construire l’application React avec `npm run build`.
+- Installer un serveur HTTP léger (par exemple, `serve`).
+- Exposer le port `3000`.
+- Démarrer le serveur pour servir les fichiers de build.
 
+Commande pour construire l’image du client :
+```bash
+cd client
+docker build -t mern-client .
+```
+
+### 3. Créer un réseau Docker
+
+Créez un réseau pour permettre la communication entre les conteneurs :
+```bash
+docker network create mern-network
+```
+
+### 4. Exécuter MongoDB dans un conteneur
+
+Lancez un conteneur MongoDB connecté au réseau créé :
+```bash
+docker run -d --name mongodb --network mern-network mongo
+```
+
+### 5. Exécuter les conteneurs du serveur et du client
+
+Pour le serveur :
+```bash
+docker run -d --name server --network mern-network -p 9000:9000 mern-server
+```
+
+Pour le client :
+```bash
+docker run -d --name client --network mern-network -p 3000:3000 mern-client
+```
+
+### 6. Créer un fichier Docker Compose
+
+Dans le répertoire racine du projet, créez un fichier `docker-compose.yml`.
+
+#### Services à définir :
+- **mongodb** : Utiliser l’image `mongo`, nommer le conteneur `mongodb`, le connecter au réseau `mern-network`.
+- **server** : Construire à partir du dossier `./server`, nommer le conteneur `server`, exposer le port `9000`, le connecter au réseau `mern-network`, dépendre de `mongodb`, définir la variable d’environnement `MONGO_URI`.
+- **client** : Construire à partir du dossier `./client`, nommer le conteneur `client`, exposer le port `3000`, le connecter au réseau `mern-network`, dépendre de `server`.
+
+Définir le réseau `mern-network` avec le driver `bridge`.
+
+#### Exemple de `docker-compose.yml` :
+
+```yaml
+version: '3.7'
+
+services:
+  mongodb:
+    image: mongo
+    container_name: mongodb
+    networks:
+      - mern-network
+
+  server:
+    build: ./server
+    container_name: server
+    ports:
+      - "9000:9000"
+    networks:
+      - mern-network
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/mern
+    depends_on:
+      - mongodb
+
+  client:
+    build: ./client
+    container_name: client
+    ports:
+      - "3000:3000"
+    networks:
+      - mern-network
+    depends_on:
+      - server
+
+networks:
+  mern-network:
+    driver: bridge
+```
+
+#### Commande pour lancer l’application avec Docker Compose :
+
+```bash
+docker-compose up --build
+```
+
+### Livrables
+
+- Les fichiers `Dockerfile` pour le client et le serveur, avec les instructions appropriées.
+- Le fichier `docker-compose.yml`, configuré selon les spécifications ci-dessus.
+- Un README expliquant les étapes réalisées.
+
+## Conseils
+
+- **Variables d’environnement** : Assurez-vous que le serveur Express est configuré pour se connecter à MongoDB en utilisant la variable d’environnement `MONGO_URI`.
+- **Communication entre services** : Dans Docker Compose, les services peuvent communiquer en utilisant le nom du service comme hostname (par exemple, le serveur peut accéder à MongoDB via `mongodb`).
+
+---
+
+
+```
